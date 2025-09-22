@@ -20,6 +20,7 @@ export interface SriAuthorizationResponse {
   claveAcceso: string;
   estadoAutorizacion: string;
   comprobante: string;
+  comprobanteCrudo: string;
   rucEmisor: string;
   fechaAutorizacion: string;
   ambiente: string;
@@ -83,8 +84,12 @@ export interface SriAuthorizationResponse {
             >, <code>NO AUTORIZADO</code>).
           </li>
           <li>
-            <code>comprobante</code>: Contenido XML autorizado (firmado y con
-            número de autorización).
+            <code>comprobante</code>: Contenido XML autorizado sin las etiquetas
+            de autorización del SRI (solo el comprobante original).
+          </li>
+          <li>
+            <code>comprobanteCrudo</code>: Contenido XML completo incluyendo las
+            etiquetas de autorización del SRI (respuesta completa del servicio).
           </li>
           <li>
             <code>fechaAutorizacion</code>: Fecha exacta en que el SRI autorizó
