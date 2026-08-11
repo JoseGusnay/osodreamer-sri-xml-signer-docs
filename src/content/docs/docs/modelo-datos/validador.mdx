@@ -1,0 +1,34 @@
+---
+title: Modelo de datos — Validador
+description: Estructura necesaria para validar un comprobante electrónico ya firmado usando los servicios oficiales del SRI.
+---
+
+Conoce la estructura necesaria para validar un comprobante electrónico ya firmado usando
+los servicios oficiales del SRI.
+
+## Datos de entrada esperados
+
+```ts title="ValidateXmlCommand.ts"
+type SRIEnv = "test" | "prod";
+
+interface ValidateXmlCommand {
+  xml: Uint8Array;
+  env: SRIEnv;
+}
+```
+
+- `xml`: Archivo XML del comprobante **ya firmado**, en formato binario (`Uint8Array`).
+- `env`: Entorno del SRI a utilizar: `"test"` o `"prod"`.
+
+## Respuesta devuelta por el validador
+
+```ts title="ValidateXmlResponse.ts"
+interface ValidateXmlResponse {
+  estado: string;
+  mensaje?: string;
+}
+```
+
+- `estado`: Resultado del proceso de validación: puede ser `"AUTORIZADO"`, `"DEVUELTA"` u
+  otro.
+- `mensaje`: Detalle u observación adicional, si aplica.

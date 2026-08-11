@@ -1,0 +1,36 @@
+---
+title: osodreamer-sri-xml-signer
+description: Genera, firma, valida y autoriza comprobantes electrónicos XML para el SRI de Ecuador desde Node.js, TypeScript y NestJS.
+template: splash
+hero:
+  tagline: Automatiza tu facturación electrónica en Ecuador — genera, firma, valida y autoriza comprobantes XML compatibles con el SRI.
+  image:
+    file: ../../assets/osodreamer.png
+  actions:
+    - text: Comenzar
+      link: docs/
+      icon: right-arrow
+    - text: Ver en GitHub
+      link: https://github.com/JoseGusnay/osodreamer-sri-xml-signer
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Genera" icon="document">
+    Comprobantes XML tipo factura según el **Anexo 3 — versión 1.1.0** del SRI, con
+    soporte opcional para los anexos 21, 22 y 26.
+  </Card>
+  <Card title="Firma" icon="approve-check">
+    Firma digital **XAdES-BES** con certificados `.p12` de Security Data, Banco Central,
+    Uanataca y ANFAC.
+  </Card>
+  <Card title="Valida" icon="puzzle">
+    Envía el comprobante al servicio de recepción del SRI y obtén la respuesta oficial.
+  </Card>
+  <Card title="Autoriza" icon="rocket">
+    Consulta la autorización final con la clave de acceso y guarda el XML autorizado.
+  </Card>
+</CardGrid>

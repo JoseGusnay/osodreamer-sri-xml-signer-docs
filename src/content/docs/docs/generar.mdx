@@ -1,0 +1,100 @@
+---
+title: Generador XML
+description: Genera comprobantes electrónicos tipo factura en XML según el Anexo 3 del SRI, listos para firmar, validar y autorizar.
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+**Generación precisa de comprobantes electrónicos** tipo factura en **XML** según el
+**Anexo 3 – Formatos SRI**, lista para firmar, validar y autorizar en producción.
+
+## Uso básico
+
+```ts title="generar.ts"
+import { generateXmlInvoice } from "osodreamer-sri-xml-signer";
+import * as fs from "fs";
+
+const response = await generateXmlInvoice({
+  infoTributaria: {
+    ambiente: "1",
+    razonSocial: "Mi Empresa",
+    nombreComercial: "Comercial XYZ",
+    ruc: "1234567890001",
+    estab: "001",
+    ptoEmi: "001",
+    secuencial: "000000123",
+    dirMatriz: "Av. Principal 123"
+  }
+  // ver estructura del modelo...
+});
+
+const { generatedXml } = response;
+fs.writeFileSync("./comprobante.xml", generatedXml);
+```
+
+## Anexo 26 — RUC del proveedor
+
+Los contribuyentes que emiten con un **sistema de facturación de un tercero** están
+obligados a incluir el **RUC de ese proveedor** dentro de `infoAdicional`. Solo pasa
+`rucProveedor` en la raíz del comprobante y la librería agrega el `campoAdicional` con el
+nombre exacto que exige el SRI.
+
+```ts title="anexo-26.ts" {12}
+import { generateXmlInvoice } from "osodreamer-sri-xml-signer";
+
+const response = await generateXmlInvoice({
+  infoTributaria: { /* ... */ },
+  infoFactura: { /* ... */ },
+  detalles: { /* ... */ },
+
+  infoAdicional: {
+    campoAdicional: [{ nombre: "Email", value: "cliente@correo.com" }]
+  },
+
+  rucProveedor: "1719369561001"
+});
+```
+
+Resultado en el XML generado:
+
+```xml title="comprobante.xml" {3}
+<infoAdicional>
+  <campoAdicional nombre="Email">cliente@correo.com</campoAdicional>
+  <campoAdicional nombre="RUC Proveedor">1719369561001</campoAdicional>
+</infoAdicional>
+```
+
+<Aside type="note" title="Comportamiento del campo">
+- Es **opcional**. Si no lo envías, el XML se genera igual que antes.
+- Se valida como **cadena numérica de 13 dígitos**.
+- Si el comprobante no tiene `infoAdicional`, el nodo se crea automáticamente con este
+  único campo.
+- El campo siempre se agrega **al final** de la lista, con el nombre literal
+  `"RUC Proveedor"`.
+- Si además envías un `campoAdicional` llamado `"RUC Proveedor"` por tu cuenta, no se
+  duplica: manda `rucProveedor`.
+</Aside>
+
+<Aside type="caution">
+Si envías `rucProveedor` **y** un `campoAdicional` llamado `"RUC Proveedor"` con valores
+**distintos**, se lanza un error de validación en vez de elegir uno en silencio.
+</Aside>
+
+## Compatibilidad y alcance
+
+Este generador crea exclusivamente **facturas electrónicas** conforme al
+**ANEXO 3 - VERSIÓN 1.1.0** del SRI.
+
+Soporte adicional (opcional):
+
+| Anexo | Para qué sirve |
+| --- | --- |
+| **ANEXO 21** | Agentes de retención |
+| **ANEXO 22** | Contribuyentes RIMPE |
+| **ANEXO 26** | RUC del proveedor del sistema de facturación |
+
+<LinkCard
+  title="Ver estructura del modelo"
+  description="El contrato de datos completo que espera generateXmlInvoice(...)."
+  href="../modelo-datos/factura/"
+/>

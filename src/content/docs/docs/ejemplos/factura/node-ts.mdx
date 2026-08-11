@@ -1,0 +1,32 @@
+---
+title: Ejemplo Node + TypeScript
+description: Proyecto de ejemplo completo con Node.js y TypeScript que genera, firma, valida y autoriza una factura electrónica.
+---
+
+import { Card, LinkCard, Steps } from '@astrojs/starlight/components';
+
+Aprende cómo implementar esta librería en un entorno real con Node.js + TypeScript. El
+proyecto de ejemplo recorre el flujo completo:
+
+<Steps>
+
+1. **Generación** de XML con la estructura oficial del SRI
+
+2. **Firma digital** con certificados `.p12`
+
+3. **Validación** contra los servicios del SRI
+
+4. **Autorización** final y almacenamiento
+
+</Steps>
+
+<Card title="Prueba el proyecto por ti mismo" icon="rocket">
+El repositorio en GitHub incluye toda la estructura modular, certificados de prueba y
+rutas listas para guardar tus XML generados, firmados y autorizados.
+</Card>
+
+<LinkCard
+  title="Ver repositorio en GitHub"
+  description="example-node-ts-osodreamer-sri-xml-signer"
+  href="https://github.com/YueYuuta/example-node-ts-osodreamer-sri-xml-signer"
+/>

@@ -1,0 +1,40 @@
+---
+title: Validador
+description: Envía el comprobante firmado al web service de recepción del SRI y obtén la respuesta oficial de aceptación o rechazo.
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+Envía el comprobante firmado al **web service de recepción del SRI** y obtiene una
+respuesta oficial que indica si fue aceptado o rechazado.
+
+## Uso básico
+
+```ts title="validar.ts"
+import { validateXml } from "osodreamer-sri-xml-signer";
+import * as fs from "fs";
+
+const xml = fs.readFileSync("./comprobante_firmado.xml");
+
+const validatedXmlResponse = await validateXml({ xml, env: "test" });
+
+console.log(validatedXmlResponse);
+```
+
+## ¿Qué valida?
+
+- Envía el XML firmado al **servicio de recepción del SRI** (SOAP)
+- Valida estructura, firma digital y consistencia general
+- Retorna respuesta JSON con estado (`RECIBIDA`, `DEVUELTA`, etc.)
+- Funciona para ambientes de `pruebas` o `producción`
+
+<Aside type="caution">
+Este paso es obligatorio antes de autorizar el comprobante. Si el SRI responde
+`DEVUELTA`, no se puede continuar.
+</Aside>
+
+<LinkCard
+  title="Ver estructura del modelo"
+  description="Los datos que espera validateXml(...) y la respuesta del SRI."
+  href="../modelo-datos/validador/"
+/>

@@ -1,29 +1,17 @@
 ---
-import DocsLayout from "../../../layouts/Layout.astro";
-import CodeBlock from "../../../components/CodeBlock.astro";
+title: Modelo de datos — Generador
+description: El contrato de datos que usa generateXmlInvoice(...) para generar comprobantes tipo factura válidos para el SRI.
 ---
 
-<DocsLayout title="Modelo de datos ">
-  <section class="mb-12 text-center max-w-2xl mx-auto">
-    <h1 class="text-3xl font-bold text-white mb-3">Modelo de datos</h1>
-    <p class="text-zinc-400 text-base">
-      Este es el contrato de datos usado por la función
-      <code>generateXmlInvoice(...)</code> para generar comprobantes tipo
-      <strong>Factura</strong> válidos para el SRI.
-    </p>
-  </section>
+import { Aside } from '@astrojs/starlight/components';
 
-  <section class="mb-24 w-full px-4">
-    <div
-      class="bg-zinc-900 border border-zinc-800 p-6 sm:p-8 rounded-2xl max-w-3xl mx-auto shadow-md"
-    >
-      <div class="mb-12">
-        <h2 class="text-lg font-semibold text-white mb-4">
-          Modelo de la factura
-        </h2>
-        <CodeBlock
-          language="ts"
-          code={`class InfoTributariaModel {
+Este es el contrato de datos usado por la función `generateXmlInvoice(...)` para generar
+comprobantes tipo **Factura** válidos para el SRI.
+
+## Modelo de la factura
+
+```ts
+class InfoTributariaModel {
   ambiente: ENV_ENUM;
   razonSocial: string;
   nombreComercial?: string;
@@ -146,33 +134,20 @@ class ComprobanteModel {
   /** Anexo 26 — RUC del proveedor del sistema de facturación (13 dígitos) */
   rucProveedor?: string;
 }
-type ComprobanteType = InstanceType<typeof ComprobanteModel>;`}
-        />
 
-        <div class="text-sm text-zinc-400 bg-zinc-800/40 p-4 rounded-xl mt-2">
-          <p>
-            <strong class="text-white">rucProveedor</strong> no genera un nodo
-            propio en el XML: la librería lo emite como
-            <code>&lt;campoAdicional nombre="RUC Proveedor"&gt;</code> dentro de
-            <code>infoAdicional</code>, según el
-            <strong class="text-white">Anexo 26</strong>.
-            <a
-              href="/osodreamer-sri-xml-signer-docs/docs/generar"
-              class="text-indigo-400 hover:text-indigo-300 underline"
-            >
-              Ver ejemplo completo
-            </a>.
-          </p>
-        </div>
-      </div>
+type ComprobanteType = InstanceType<typeof ComprobanteModel>;
+```
 
-      <hr class="my-8 border-zinc-700" />
+<Aside type="note" title="Sobre rucProveedor">
+No genera un nodo propio en el XML: la librería lo emite como
+`<campoAdicional nombre="RUC Proveedor">` dentro de `infoAdicional`, según el
+**Anexo 26**. [Ver ejemplo completo](../../generar/#anexo-26--ruc-del-proveedor).
+</Aside>
 
-      <div>
-        <h2 class="text-lg font-semibold text-white mb-4">Enums</h2>
-        <CodeBlock
-          language="ts"
-          code={`enum ENV_ENUM {
+## Enums
+
+```ts
+enum ENV_ENUM {
   TEST = 1,
   PROD = 2,
 }
@@ -216,34 +191,25 @@ enum CODIGO_RETENCION_ENUM {
 }
 enum IMPUESTO_A_RETENER_ENUM {
   IVA_PRESUNTIVO_Y_RENTA = 4,
-}`}
-        />
-      </div>
-      <hr class="my-8 border-zinc-700" />
+}
+```
 
-      <div>
-        <h2 class="text-lg font-semibold text-white mb-4">
-          Respuesta de <code>generateXmlInvoice(...)</code>
-        </h2>
+## Respuesta de `generateXmlInvoice(...)`
 
-        <p class="text-sm text-zinc-400 mb-4">
-          Esta función devuelve una promesa con el XML generado como cadena, y
-          además el objeto convertido a JSON con la estructura del comprobante.
-        </p>
+Esta función devuelve una promesa con el XML generado como cadena, y además el objeto
+convertido a JSON con la estructura del comprobante.
 
-        <CodeBlock
-          language="ts"
-          filename="ResponseGenerateXmlModel.ts"
-          code={`interface ResponseGenerateXmlModel {
-  generatedXml: string; 
-  invoiceJson: InvoiceSriBuilder; 
+```ts title="ResponseGenerateXmlModel.ts"
+interface ResponseGenerateXmlModel {
+  generatedXml: string;
+  invoiceJson: InvoiceSriBuilder;
 }
 
- interface InvoiceSriBuilder {
+interface InvoiceSriBuilder {
   factura: FacturaInfo;
 }
 
- interface FacturaInfo {
+interface FacturaInfo {
   $: {
     id: string;
     version: string;
@@ -251,24 +217,22 @@ enum IMPUESTO_A_RETENER_ENUM {
   infoTributaria: InfoTributaria;
   infoFactura: InfoFactura;
   detalles: Detalles;
-
   retenciones: Retenciones;
-
   infoAdicional: InfoAdicional;
 }
- class Retenciones {
+
+class Retenciones {
   retencion: Retencion[];
 }
- class Retencion {
+
+class Retencion {
   codigo: IMPUESTO_A_RETENER_ENUM;
-
   codigoPorcentaje: CODIGO_RETENCION_ENUM;
-
-  tarifa: string; 
-
+  tarifa: string;
   valor: string;
 }
- interface InfoTributaria {
+
+interface InfoTributaria {
   ambiente: number;
   tipoEmision: string;
   razonSocial: string;
@@ -284,7 +248,7 @@ enum IMPUESTO_A_RETENER_ENUM {
   agenteRetencion?: string;
 }
 
- interface InfoFactura {
+interface InfoFactura {
   fechaEmision: string;
   dirEstablecimiento: string;
   contribuyenteEspecial?: string;
@@ -305,7 +269,6 @@ enum IMPUESTO_A_RETENER_ENUM {
   totalSinImpuestos: string;
   incoTermTotalSinImpuestos?: string;
   totalDescuento: string;
-
   totalConImpuestos: {
     totalImpuesto: TotalImpuesto[];
   };
@@ -317,12 +280,11 @@ enum IMPUESTO_A_RETENER_ENUM {
   importeTotal: string;
   moneda: string;
   pagos: { pago: Pago[] };
-
   valorRetIva?: string;
-
   valorRetRenta?: string;
 }
- interface TotalImpuesto {
+
+interface TotalImpuesto {
   codigo: TAX_CODE_ENUM;
   codigoPorcentaje: string;
   baseImponible: string;
@@ -330,18 +292,18 @@ enum IMPUESTO_A_RETENER_ENUM {
   descuentoAdicional?: string;
 }
 
- interface Detalles {
+interface Detalles {
   detalle: Detalle[];
 }
 
- interface Pago {
+interface Pago {
   formaPago: string;
   total: string;
   plazo: number;
   unidadTiempo: string;
 }
 
- interface Detalle {
+interface Detalle {
   codigoPrincipal: string;
   codigoAuxiliar: string;
   descripcion: string;
@@ -357,32 +319,29 @@ enum IMPUESTO_A_RETENER_ENUM {
   };
 }
 
- interface DetAdicional {
+interface DetAdicional {
   $: {
     nombre: string;
     valor: string;
   };
 }
 
- interface ImpuestoDetalle {
+interface ImpuestoDetalle {
   codigo: TAX_CODE_ENUM;
   codigoPorcentaje: string;
   tarifa: string;
   baseImponible: string;
   valor: string;
 }
- interface InfoAdicional {
+
+interface InfoAdicional {
   campoAdicional: CampoAdicional[];
 }
 
- interface CampoAdicional {
+interface CampoAdicional {
   $: {
     nombre: string;
   };
   _: string;
-}`}
-        />
-      </div>
-    </div>
-  </section>
-</DocsLayout>
+}
+```

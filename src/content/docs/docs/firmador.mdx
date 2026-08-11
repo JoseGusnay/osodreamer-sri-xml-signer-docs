@@ -1,0 +1,60 @@
+---
+title: Firmador
+description: Firma comprobantes XML con certificados .p12 bajo el estándar XAdES-BES, conforme a los requisitos del SRI.
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+Firma digitalmente comprobantes electrónicos usando certificados `.p12` y el estándar
+**XAdES-BES**, conforme a los requisitos del **SRI**.
+
+## Uso básico
+
+```ts title="firmar.ts"
+import { signXml } from "osodreamer-sri-xml-signer";
+import * as fs from "fs";
+
+const p12Buffer = fs.readFileSync("./certificado.p12");
+const xmlBuffer = fs.readFileSync("./comprobante.xml");
+
+const signedXml = await signXml({
+  p12Buffer,
+  password: "tu-contraseña",
+  xmlBuffer,
+});
+
+fs.writeFileSync("./comprobante_firmado.xml", signedXml);
+```
+
+## Soporte de certificados
+
+El firmador es compatible con certificados emitidos por las siguientes entidades
+reconocidas en Ecuador:
+
+- **Security Data**
+- **Banco Central del Ecuador**
+- **Uanataca**
+- **ANFAC**
+
+<Aside type="tip" title="¿Otra entidad certificadora?">
+Si tu certificado fue emitido por una entidad distinta, escríbeme a
+[osodreamer2023@gmail.com](mailto:osodreamer2023@gmail.com) para evaluar su integración y
+darte soporte personalizado.
+</Aside>
+
+## Compatibilidad
+
+- Certificados digitales en formato `.p12` con clave
+- Firma bajo el estándar **XAdES-BES**
+- Compatible con **Node.js**, **Express**, **NestJS**, etc.
+
+<Aside>
+Si ya tienes el XML generado por tu cuenta, puedes usar solo el firmador sin generar
+nuevamente el comprobante.
+</Aside>
+
+<LinkCard
+  title="Ver estructura del modelo"
+  description="Los datos que espera signXml(...) y lo que devuelve."
+  href="../modelo-datos/firmador/"
+/>

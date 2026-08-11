@@ -1,0 +1,52 @@
+---
+title: Modelo de datos — Autorizador
+description: Estructura necesaria para consultar el estado de autorización de un comprobante previamente validado por el SRI.
+---
+
+Estructura necesaria para consultar el estado de autorización de un comprobante
+previamente validado por el SRI.
+
+## Entrada esperada
+
+```ts title="AuthorizeXmlCommand.ts"
+type SRIEnv = "test" | "prod";
+
+export interface AuthorizeXmlCommand {
+  claveAcceso: string;
+  env: SRIEnv;
+}
+```
+
+- `claveAcceso`: Clave única del comprobante generado, firmada y enviada al SRI.
+- `env`: Entorno donde se autoriza el comprobante: `"test"` o `"prod"`.
+
+## Estructura de la respuesta
+
+```ts title="SriAuthorizationResult.ts"
+export interface SriAuthorizationMessage {
+  identificador: string;
+  mensaje: string;
+  tipo: string;
+  informacionAdicional?: string;
+}
+
+export interface SriAuthorizationResponse {
+  claveAcceso: string;
+  estadoAutorizacion: string;
+  comprobante: string;
+  comprobanteCrudo: string;
+  rucEmisor: string;
+  fechaAutorizacion: string;
+  ambiente: string;
+  mensajes: SriAuthorizationMessage[] | null;
+}
+```
+
+- `estadoAutorizacion`: Resultado devuelto por el SRI (ej. `AUTORIZADO`,
+  `NO AUTORIZADO`).
+- `comprobante`: Contenido XML autorizado sin las etiquetas de autorización del SRI (solo
+  el comprobante original).
+- `comprobanteCrudo`: Contenido XML completo incluyendo las etiquetas de autorización del
+  SRI (respuesta completa del servicio).
+- `fechaAutorizacion`: Fecha exacta en que el SRI autorizó el documento.
+- `mensajes`: Detalles o advertencias devueltas por el SRI (puede ser `null` si no hay).

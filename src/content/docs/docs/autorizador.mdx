@@ -1,0 +1,39 @@
+---
+title: Autorizador
+description: Consulta la autorización oficial del comprobante ante el SRI usando su clave de acceso.
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+Consulta la autorización oficial del comprobante ante el SRI usando su
+**clave de acceso**.
+
+## Uso básico
+
+```ts title="autorizar.ts"
+import { authorizeXml } from "osodreamer-sri-xml-signer";
+
+const claveAcceso = "clave de acceso del comprobante";
+
+const authorizedXmlResponse = await authorizeXml({ claveAcceso, env: "test" });
+
+console.log(authorizedXmlResponse);
+```
+
+## ¿Qué hace?
+
+- Consulta al servicio de **autorización del SRI** vía SOAP
+- Recibe el estado `AUTORIZADO` o `NO AUTORIZADO`
+- Devuelve el XML autorizado y los mensajes asociados
+- Funciona para ambientes de `pruebas` y `producción`
+
+<Aside>
+Es el último paso del proceso: se realiza únicamente si el comprobante fue **recibido**
+correctamente en el paso anterior.
+</Aside>
+
+<LinkCard
+  title="Ver estructura del modelo"
+  description="Los datos que espera authorizeXml(...) y la respuesta completa del SRI."
+  href="../modelo-datos/autorizador/"
+/>

@@ -1,0 +1,75 @@
+---
+title: Introducción
+description: Qué es osodreamer-sri-xml-signer, qué resuelve y cómo instalarla en tu proyecto Node.js, TypeScript o NestJS.
+---
+
+import { Card, CardGrid, Tabs, TabItem, LinkCard } from '@astrojs/starlight/components';
+
+**Automatiza tu facturación electrónica en Ecuador** con una librería robusta para
+**generar, firmar, validar y autorizar comprobantes XML** compatibles con el **SRI**.
+Ideal para entornos profesionales como **Node.js**, **TypeScript** y **NestJS**.
+
+<CardGrid>
+  <Card title="¿Qué hace esta librería?" icon="document">
+    - Genera comprobantes XML (facturas)
+    - Firma digitalmente con certificados `.p12`
+    - Valida con servicios SOAP del SRI
+    - Obtiene autorización oficial
+  </Card>
+  <Card title="¿Por qué usar osodreamer?" icon="approve-check">
+    - Compatible con Node.js, TypeScript, NestJS
+    - Soporte para CJS y ESM
+    - Fácil de integrar en sistemas existentes
+    - Diseñada para el ecosistema ecuatoriano
+  </Card>
+</CardGrid>
+
+## Instalación
+
+Instala la librería con tu gestor de paquetes favorito:
+
+<Tabs syncKey="pkg">
+  <TabItem label="npm">
+    ```bash
+    npm install osodreamer-sri-xml-signer
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```bash
+    yarn add osodreamer-sri-xml-signer
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    pnpm add osodreamer-sri-xml-signer
+    ```
+  </TabItem>
+</Tabs>
+
+Compatible con **Node.js**, **TypeScript** y **NestJS**. Soporta `CommonJS` y `ESM`.
+
+## El flujo completo
+
+Los cuatro pasos se usan en orden, pero son independientes: si ya tienes el XML generado
+por tu cuenta, puedes entrar directo al firmador.
+
+<LinkCard
+  title="1. Generador XML"
+  description="Construye el comprobante y su clave de acceso a partir de un objeto."
+  href="generar/"
+/>
+<LinkCard
+  title="2. Firmador"
+  description="Firma el XML con tu certificado .p12 bajo el estándar XAdES-BES."
+  href="firmador/"
+/>
+<LinkCard
+  title="3. Validador"
+  description="Envía el comprobante firmado al servicio de recepción del SRI."
+  href="validador/"
+/>
+<LinkCard
+  title="4. Autorizador"
+  description="Consulta la autorización oficial usando la clave de acceso."
+  href="autorizador/"
+/>
