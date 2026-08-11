@@ -1,0 +1,183 @@
+---
+title: Errores del SRI
+description: Qué significa cada código de rechazo del SRI (39 firma inválida, 43 clave registrada, 45 secuencial registrado, 52 diferencias, 65 fecha extemporánea) y cómo corregirlo.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Cuando el SRI devuelve un comprobante como `DEVUELTA` o `NO AUTORIZADO`, la respuesta
+trae un **código numérico** que identifica el motivo. Esta página recoge el catálogo
+oficial completo y explica los más frecuentes.
+
+<Aside type="note">
+Transcrito de la **Ficha Técnica de Comprobantes Electrónicos, esquema offline,
+versión 2.34**, sección 11. Si el SRI publica una versión posterior, esta tabla puede
+quedar desactualizada.
+</Aside>
+
+Los errores llegan en el campo `mensajes` de la respuesta. Con la librería los recibes
+así:
+
+```ts
+try {
+  await validateXml({ xml, env: "test" });
+} catch (error) {
+  if (error instanceof SRIRejectedError) {
+    console.log(error.identificador);         // "43"
+    console.log(error.mensajeSRI);            // "CLAVE ACCESO REGISTRADA"
+    console.log(error.informacionAdicional);  // detalle del caso concreto
+  }
+}
+```
+
+Ver [Errores de la librería](../errores-libreria/) para el manejo completo.
+
+## Los más frecuentes
+
+### Error 39 — Firma inválida
+
+La firma electrónica no supera la validación. Las causas habituales:
+
+- El **certificado está vencido o revocado** (ver también el error 42).
+- El XML **se modificó después de firmarlo**. La firma cubre el contenido exacto: si
+  reescribes, reindentas o reserializas el XML firmado, la firma deja de cuadrar.
+- Se firmó un XML que ya venía firmado.
+
+Con esta librería, firma siempre el XML **tal como lo devuelve `generateXmlInvoice`** y
+envía a validar exactamente lo que devuelve `signXml`, sin pasos intermedios de formateo.
+
+### Error 43 — Clave de acceso registrada
+
+Esa clave de acceso ya existe en la base del SRI: el comprobante **ya fue enviado antes**.
+
+La clave se calcula a partir de fecha de emisión, tipo de comprobante, RUC, ambiente,
+establecimiento, punto de emisión y **secuencial**. Si reenvías con los mismos datos
+obtienes la misma clave. La solución casi siempre es avanzar el `secuencial`.
+
+### Error 45 — Secuencial registrado
+
+Variante del anterior: ese `secuencial` ya se usó para ese establecimiento y punto de
+emisión. Lleva el control del secuencial en tu base de datos e increméntalo por cada
+comprobante emitido.
+
+### Error 52 — Error en diferencias
+
+Los cálculos del comprobante no cuadran.
+
+<Aside type="caution">
+La librería **no recalcula los totales**: toma los valores que le pasas
+(`totalSinImpuestos`, `totalConImpuestos`, `importeTotal`, las bases imponibles de cada
+detalle) y los formatea a dos decimales. Si la aritmética viene mal desde tu sistema, el
+XML sale mal formado matemáticamente y el SRI lo rechaza con este código.
+</Aside>
+
+Revisa que la suma de los `precioTotalSinImpuesto` de los detalles coincida con
+`totalSinImpuestos`, que cada `valor` de impuesto sea su `baseImponible` por la tarifa, y
+que `importeTotal` sea la suma de todo más la propina.
+
+### Error 65 — Fecha de emisión extemporánea
+
+El comprobante se envió fuera del plazo permitido para su tipo de emisión. Revisa que
+`fechaEmision` sea la real y que no estés reenviando comprobantes viejos.
+
+### Error 70 — Clave de acceso en procesamiento
+
+Ya enviaste ese comprobante y el SRI todavía lo está procesando.
+
+<Aside type="danger">
+Ante el error 70 **no reenvíes** el comprobante ni generes otro con distinta clave de
+acceso y secuencial. Espera la respuesta de autorización o rechazo, hasta un máximo de
+**24 horas**. Así lo indica expresamente la ficha técnica.
+</Aside>
+
+## Catálogo completo de errores
+
+Estos rechazan el comprobante. La última columna indica en qué etapa se detectan.
+
+| Código | Descripción | Motivo | Etapa |
+| :-- | --- | --- | --- |
+| **2** | RUC del emisor se encuentra NO ACTIVO | Verificar que el número de RUC se encuentre en estado ACTIVO | Autorización |
+| **10** | Establecimiento del emisor se encuentra clausurado | No se autorizarán comprobantes si el establecimiento emisor ha sido clausurado; el servicio se habilita automáticamente al concluir la clausura | Autorización |
+| **26** | Tamaño máximo superado | El tamaño del archivo supera lo establecido | Recepción |
+| **27** | Clase no permitido | La clase del contribuyente no puede emitir comprobantes electrónicos | Autorización |
+| **28** | Acuerdo de medios electrónicos no aceptado | El contribuyente debe haber aceptado el acuerdo de medios electrónicos, por el cual las notificaciones llegan a su buzón | Recepción |
+| **35** | Documento inválido | El XML no pasa la validación de esquema | Recepción |
+| **36** | Versión esquema descontinuada | La versión del esquema no es la correcta | Recepción |
+| **37** | RUC sin autorización de emisión | El RUC del emisor no cuenta con una solicitud de emisión de comprobantes electrónicos | Autorización |
+| **39** | Firma inválida | La firma electrónica del emisor no es válida | Autorización |
+| **40** | Error en el certificado | No se encontró el certificado o no se puede convertir en certificado X509 | Autorización |
+| **43** | Clave acceso registrada | La clave de acceso ya se encuentra registrada en la base de datos | Recepción |
+| **45** | Secuencial registrado | El secuencial del comprobante ya se encuentra registrado en la base de datos | Recepción |
+| **46** | RUC no existe | El RUC emisor no existe en el Registro Único de Contribuyentes | Autorización |
+| **47** | Tipo de comprobante no existe | El tipo de comprobante enviado no existe en el catálogo | Recepción |
+| **48** | Esquema XSD no existe | No existe el esquema para el tipo de comprobante enviado | Recepción |
+| **49** | Argumentos que envían al WS nulos | Se consume el web service con argumentos nulos | Recepción |
+| **50** | Error interno general | Ocurrió un error inesperado en el servidor | Recepción |
+| **52** | Error en diferencias | Existe error en los cálculos del comprobante | Autorización |
+| **56** | Establecimiento cerrado | El establecimiento desde el cual se genera el comprobante se encuentra cerrado | Autorización |
+| **57** | Autorización suspendida | La autorización para emitir está suspendida por procesos de control, o el contribuyente no tenía autorización a la fecha de emisión | Autorización |
+| **58** | Error en la estructura de clave acceso | La clave de acceso tiene componentes diferentes a los del comprobante | Autorización |
+| **63** | RUC clausurado | El RUC del emisor se encuentra clausurado por procesos de control | Autorización |
+| **65** | Fecha de emisión extemporánea | El comprobante no fue enviado dentro del tiempo del tipo de emisión con que se realizó | Emisor / Recepción |
+| **67** | Fecha inválida | Existen errores en el formato de la fecha | Recepción |
+| **70** | Clave de acceso en procesamiento | Se envía un comprobante ya enviado que aún no termina de procesarse | Recepción |
+| **80** | Error en la estructura de clave acceso | En la consulta de autorización, la clave supera los 49 dígitos, tiene caracteres alfanuméricos, o el tag `claveAccesoComprobante` está vacío | Autorización |
+| **82** | Error en la fecha de inicio de transporte | La fecha de inicio de transporte es menor a la fecha de emisión de la guía de remisión | Recepción |
+| **92** | Error al validar monto de devolución del IVA | El valor del campo de devolución del IVA en facturas y notas de débito no corresponde al autorizado por el servicio web DIG | Recepción |
+
+<Aside type="tip" title="Se pueden reenviar sin cambiar la clave">
+Los comprobantes rechazados por cualquiera de estos errores **pueden reenviarse una vez
+corregido el motivo, sin generar nueva clave de acceso ni nuevo secuencial**.
+
+La excepción son los casos en que el archivo está correcto pero el sistema no puede
+autorizar por un impedimento — RUC o establecimiento clausurado, RUC inactivo,
+establecimiento cerrado. Los comprobantes devueltos no se guardan en la base del SRI.
+</Aside>
+
+## Advertencias
+
+Estas **no rechazan** el comprobante: llegan junto a la autorización como aviso.
+
+| Código | Descripción | Cuándo aparece |
+| :-- | --- | --- |
+| **59** | Identificación no existe | El número de identificación del adquirente no existe |
+| **60** | Ambiente ejecución | Aparece **siempre** que el comprobante se emite en ambiente de certificación o pruebas |
+| **62** | Identificación incorrecta | La identificación del adquirente es incorrecta; por ejemplo, cédulas que no pasan el dígito verificador |
+| **68** | Documento sustento | El comprobante relacionado no existe como electrónico |
+
+<Aside>
+El **60** desconcierta a mucha gente la primera vez: no es un problema. Es el aviso normal
+de que estás emitiendo en pruebas. Ver [Ambientes](../ambientes/).
+</Aside>
+
+## Validaciones que te tocan a ti
+
+La ficha técnica indica que estas deben implementarse **en el sistema del contribuyente**,
+antes de enviar nada al SRI.
+
+| Código | Descripción | Motivo |
+| :-- | --- | --- |
+| **34** | Comprobante no autorizado | El comprobante no fue autorizado como parte de la solicitud de emisión del contribuyente |
+| **42** | Certificado revocado | Certificado que superó su fecha de caducidad y no ha sido renovado |
+| **52** | Error en diferencias | Existe error en los cálculos del comprobante |
+| **64** | Código documento sustento | El código del documento sustento no existe en el catálogo de la Administración |
+| **65** | Fecha de emisión extemporánea | El comprobante no fue enviado dentro del tiempo del tipo de emisión |
+| **69** | Identificación del receptor | La identificación del adquirente no existe en el Registro Único de Contribuyentes |
+
+El catastro de RUC se puede descargar desde
+[sri.gob.ec/web/guest/catastros](http://www.sri.gob.ec/web/guest/catastros).
+
+## En qué orden valida el SRI
+
+Al recibir el archivo, las validaciones corren en este orden. **No se revisan todas**: en
+cuanto una falla, ese es el error que se devuelve. Por eso al corregir un problema a veces
+aparece otro que estaba oculto detrás.
+
+| # | Validación | Qué comprueba |
+| :-- | --- | --- |
+| 1 | XML | Tamaño del archivo · esquema activo · XML bien formado y válido |
+| 2 | Contribuyente emisor | RUC activo · establecimiento activo · autorización de emisión activa · autorización para ese tipo de comprobante |
+| 3 | Unicidad | Clave de acceso única · secuencial único · clave de acceso bien formada |
+| 4 | Firma | Validez de la firma y cadena de confianza · OCSP |
+| 5 | Verificaciones adicionales | Fecha de emisión · identificación del receptor · documentos de sustento |
+| 6 | Diferencias | Cálculos del comprobante |

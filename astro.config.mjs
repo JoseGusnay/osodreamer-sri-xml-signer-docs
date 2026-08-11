@@ -16,7 +16,7 @@ export default defineConfig({
         src: "./src/assets/osodreamer.png",
         alt: "osodreamer",
       },
-      favicon: "/osodreamer.png",
+      favicon: "/favicon.png",
       locales: {
         root: { label: "Español", lang: "es" },
       },
@@ -28,12 +28,32 @@ export default defineConfig({
         },
       ],
       customCss: ["./src/styles/global.css"],
+      routeMiddleware: "./src/routeData.ts",
       sidebar: [
         { label: "Introducción", link: "/docs/" },
-        { label: "Generador XML", link: "/docs/generar/" },
-        { label: "Firmador", link: "/docs/firmador/" },
-        { label: "Validador", link: "/docs/validador/" },
-        { label: "Autorizador", link: "/docs/autorizador/" },
+        {
+          label: "Inicio rápido",
+          link: "/docs/inicio-rapido/",
+          badge: { text: "Empieza aquí", variant: "tip" },
+        },
+        {
+          label: "El flujo paso a paso",
+          items: [
+            { label: "Generador XML", link: "/docs/generar/" },
+            { label: "Firmador", link: "/docs/firmador/" },
+            { label: "Validador", link: "/docs/validador/" },
+            { label: "Autorizador", link: "/docs/autorizador/" },
+          ],
+        },
+        {
+          label: "Solución de problemas",
+          items: [
+            { label: "Errores del SRI", link: "/docs/errores-sri/" },
+            { label: "Errores de la librería", link: "/docs/errores-libreria/" },
+            { label: "Certificado .p12", link: "/docs/certificado-p12/" },
+            { label: "Pruebas y producción", link: "/docs/ambientes/" },
+          ],
+        },
         {
           label: "Modelo de datos",
           items: [

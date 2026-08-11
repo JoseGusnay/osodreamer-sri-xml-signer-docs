@@ -1,0 +1,94 @@
+---
+title: Pruebas y producción
+description: Diferencias entre el ambiente de pruebas y el de producción del SRI, y qué revisar antes de emitir comprobantes reales.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+El SRI tiene dos ambientes independientes, con sus propios servicios y su propia base de
+datos. Un comprobante autorizado en pruebas **no existe** en producción.
+
+## Los dos ambientes
+
+| | Pruebas | Producción |
+| --- | --- | --- |
+| `ambiente` en `infoTributaria` | `1` (`ENV_ENUM.TEST`) | `2` (`ENV_ENUM.PROD`) |
+| `env` en validador y autorizador | `"test"` | `"prod"` |
+| Host de los servicios | `celcer.sri.gob.ec` | `cel.sri.gob.ec` |
+| Validez tributaria | Ninguna | Real |
+
+<Aside type="caution" title="Los dos valores tienen que coincidir">
+El `ambiente` va **dentro del XML** y además forma parte de la clave de acceso, mientras
+que `env` decide **a qué servidor** se envía. Si generas con `ambiente: 1` y envías con
+`env: "prod"`, el SRI rechaza el comprobante porque la clave de acceso no corresponde
+(error 58). Cámbialos siempre juntos.
+</Aside>
+
+## Cómo se declara
+
+En la generación, dentro de `infoTributaria`:
+
+```ts title="generar.ts"
+import { generateXmlInvoice, ENV_ENUM } from "osodreamer-sri-xml-signer";
+
+const { generatedXml } = await generateXmlInvoice({
+  infoTributaria: {
+    ambiente: ENV_ENUM.TEST,   // 1 = pruebas, 2 = producción
+    // ...
+  },
+  // ...
+});
+```
+
+Y en el envío, como `env`:
+
+```ts title="enviar.ts"
+await validateXml({ xml, env: "test" });
+await authorizeXml({ claveAcceso, env: "test" });
+```
+
+Lo habitual es leerlo de una variable de entorno para no tocar código al desplegar:
+
+```ts title="config.ts"
+const esProduccion = process.env.NODE_ENV === "production";
+
+export const ambiente = esProduccion ? ENV_ENUM.PROD : ENV_ENUM.TEST;
+export const env = esProduccion ? "prod" : "test";
+```
+
+## La advertencia 60 es normal en pruebas
+
+Todo comprobante autorizado en el ambiente de certificación viene acompañado de la
+advertencia **60 – Ambiente ejecución**. No es un error ni un problema: es el aviso de que
+el comprobante no tiene validez tributaria. En producción desaparece.
+
+Ver [Errores del SRI](../errores-sri/) para el resto de códigos.
+
+## Antes de pasar a producción
+
+<Steps>
+
+1. **Cambia los dos valores a la vez** — `ambiente: ENV_ENUM.PROD` y `env: "prod"`.
+
+2. **Usa el certificado real.** El `.p12` es el mismo para ambos ambientes, pero revisa
+   que no esté vencido: un certificado caducado da el error 39 o el 42.
+
+3. **Reinicia la numeración.** Los secuenciales de producción son independientes de los de
+   pruebas. Llévalos en tu base de datos por establecimiento y punto de emisión.
+
+4. **Verifica que tu RUC está autorizado a emitir electrónicamente** en producción, y que
+   el establecimiento está activo. Si no, verás los errores 37, 27 o 56.
+
+5. **Guarda el XML autorizado.** En pruebas puedes descartarlo; en producción es el
+   respaldo tributario. La respuesta trae `comprobante` (solo el comprobante) y
+   `comprobanteCrudo` (con las etiquetas de autorización del SRI).
+
+6. **Prueba el flujo completo con un comprobante real de importe bajo** antes de conectar
+   toda la facturación.
+
+</Steps>
+
+<Aside type="tip">
+Un comprobante rechazado se puede corregir y reenviar **con la misma clave de acceso y el
+mismo secuencial**. No quemes numeración por cada intento fallido.
+</Aside>

@@ -1,32 +1,168 @@
 ---
 title: Ejemplo Node + TypeScript
-description: Proyecto de ejemplo completo con Node.js y TypeScript que genera, firma, valida y autoriza una factura electrónica.
+description: Un módulo completo y reutilizable que genera, firma, valida y autoriza una factura electrónica, con manejo de errores.
 ---
 
-import { Card, LinkCard, Steps } from '@astrojs/starlight/components';
+import { Aside, LinkCard, FileTree } from '@astrojs/starlight/components';
 
-Aprende cómo implementar esta librería en un entorno real con Node.js + TypeScript. El
-proyecto de ejemplo recorre el flujo completo:
+El [Inicio rápido](../../inicio-rapido/) muestra los cuatro pasos por separado. Aquí está
+el mismo flujo empaquetado como un módulo reutilizable, con el manejo de errores que
+necesitas en producción.
 
-<Steps>
+## Estructura sugerida
 
-1. **Generación** de XML con la estructura oficial del SRI
+<FileTree>
 
-2. **Firma digital** con certificados `.p12`
+- src
+  - facturacion
+    - **emitir-factura.ts** el flujo completo
+    - config.ts ambiente y credenciales
+  - index.ts
+- certificados
+  - certificado.p12
 
-3. **Validación** contra los servicios del SRI
+</FileTree>
 
-4. **Autorización** final y almacenamiento
+## Configuración
 
-</Steps>
+Separa lo que cambia entre ambientes para no tocar el código al desplegar.
 
-<Card title="Prueba el proyecto por ti mismo" icon="rocket">
-El repositorio en GitHub incluye toda la estructura modular, certificados de prueba y
-rutas listas para guardar tus XML generados, firmados y autorizados.
-</Card>
+```ts title="src/facturacion/config.ts"
+import { ENV_ENUM } from "osodreamer-sri-xml-signer";
+import * as fs from "fs";
+
+const esProduccion = process.env.NODE_ENV === "production";
+
+export const config = {
+  ambiente: esProduccion ? ENV_ENUM.PROD : ENV_ENUM.TEST,
+  env: (esProduccion ? "prod" : "test") as "test" | "prod",
+  p12Buffer: fs.readFileSync(process.env.CERT_PATH!),
+  password: process.env.CERT_PASSWORD!,
+};
+```
+
+## El flujo completo
+
+```ts title="src/facturacion/emitir-factura.ts"
+import {
+  generateXmlInvoice,
+  signXml,
+  validateXml,
+  authorizeXml,
+  ValidationException,
+  InvalidP12PasswordError,
+  SRIRejectedError,
+  type ComprobanteType,
+} from "osodreamer-sri-xml-signer";
+import { config } from "./config";
+
+type Resultado =
+  | { ok: true; claveAcceso: string; xmlAutorizado: string }
+  | { ok: false; motivo: string; detalles?: string[] };
+
+export async function emitirFactura(
+  comprobante: ComprobanteType
+): Promise<Resultado> {
+  try {
+    // 1. Generar
+    const { generatedXml, invoiceJson } = await generateXmlInvoice(comprobante);
+    const claveAcceso = invoiceJson.factura.infoTributaria.claveAcceso;
+
+    // 2. Firmar
+    const firmado = await signXml({
+      p12Buffer: config.p12Buffer,
+      password: config.password,
+      xmlBuffer: new TextEncoder().encode(generatedXml),
+    });
+
+    // 3. Validar (recepción)
+    await validateXml({
+      xml: new TextEncoder().encode(firmado),
+      env: config.env,
+    });
+
+    // 4. Autorizar
+    const autorizacion = await authorizeXml({ claveAcceso, env: config.env });
+
+    if (autorizacion.estadoAutorizacion !== "AUTORIZADO") {
+      return { ok: false, motivo: autorizacion.estadoAutorizacion };
+    }
+
+    return {
+      ok: true,
+      claveAcceso,
+      xmlAutorizado: autorizacion.comprobanteCrudo,
+    };
+  } catch (error) {
+    // Datos del comprobante mal formados: se pueden corregir y reintentar
+    if (error instanceof ValidationException) {
+      return { ok: false, motivo: "datos_invalidos", detalles: error.errors };
+    }
+
+    // Problema con el certificado
+    if (error instanceof InvalidP12PasswordError) {
+      return { ok: false, motivo: "certificado_password" };
+    }
+
+    // El SRI rechazó el comprobante
+    if (error instanceof SRIRejectedError) {
+      return {
+        ok: false,
+        motivo: `sri_${error.identificador}`,
+        detalles: [error.mensajeSRI, error.informacionAdicional],
+      };
+    }
+
+    throw error; // lo desconocido no se silencia
+  }
+}
+```
+
+<Aside type="caution" title="Guarda la clave de acceso antes de enviar">
+Si el proceso se corta entre el paso 3 y el 4 (se cae la red, se reinicia el servidor),
+necesitas la clave de acceso para consultar la autorización después. Persístela apenas la
+generes, junto con el secuencial usado: reenviar el comprobante daría el
+[error 70](../../errores-sri/#error-70--clave-de-acceso-en-procesamiento) o el
+[error 43](../../errores-sri/#error-43--clave-de-acceso-registrada).
+</Aside>
+
+## Uso
+
+```ts title="src/index.ts"
+import { emitirFactura } from "./facturacion/emitir-factura";
+import { config } from "./facturacion/config";
+
+const resultado = await emitirFactura({
+  infoTributaria: {
+    ambiente: config.ambiente,
+    razonSocial: "Mi Empresa S.A.",
+    ruc: "1790012345001",
+    estab: "001",
+    ptoEmi: "001",
+    secuencial: await siguienteSecuencial("001", "001"),
+    dirMatriz: "Av. Amazonas N33-100",
+  },
+  // resto del comprobante...
+});
+
+if (resultado.ok) {
+  await guardarXml(resultado.claveAcceso, resultado.xmlAutorizado);
+} else {
+  console.error(resultado.motivo, resultado.detalles);
+}
+```
+
+<Aside type="tip" title="El secuencial es tuyo">
+`siguienteSecuencial` no lo trae la librería: el control de la numeración por
+establecimiento y punto de emisión corre por tu cuenta, normalmente con un contador en base
+de datos. Repetirlo produce el
+[error 45](../../errores-sri/#error-45--secuencial-registrado).
+</Aside>
+
+## Proyecto de ejemplo
 
 <LinkCard
-  title="Ver repositorio en GitHub"
-  description="example-node-ts-osodreamer-sri-xml-signer"
-  href="https://github.com/YueYuuta/example-node-ts-osodreamer-sri-xml-signer"
+  title="Ver el repositorio completo en GitHub"
+  description="Estructura modular, certificados de prueba y rutas listas para guardar tus XML generados, firmados y autorizados."
+  href="https://github.com/JoseGusnay/example-node-ts-osodreamer-sri-xml-signer"
 />

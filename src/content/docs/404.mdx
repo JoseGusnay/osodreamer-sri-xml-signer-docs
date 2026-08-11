@@ -1,0 +1,40 @@
+---
+title: Página no encontrada
+description: La página que buscas no existe o cambió de dirección.
+template: splash
+editUrl: false
+sitemap:
+  exclude: true
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+export const base = import.meta.env.BASE_URL;
+
+Puede que el enlace esté desactualizado o que la dirección tenga una errata.
+Estos son los puntos de partida habituales:
+
+<CardGrid>
+  <LinkCard
+    title="Introducción"
+    description="Qué hace la librería y cómo instalarla."
+    href={`${base}docs/`}
+  />
+  <LinkCard
+    title="Generador XML"
+    description="Construir el comprobante y su clave de acceso."
+    href={`${base}docs/generar/`}
+  />
+  <LinkCard
+    title="Firmador"
+    description="Firmar con tu certificado .p12."
+    href={`${base}docs/firmador/`}
+  />
+  <LinkCard
+    title="Errores del SRI"
+    description="Qué significa cada código de rechazo."
+    href={`${base}docs/errores-sri/`}
+  />
+</CardGrid>
+
+También puedes buscar con la lupa de la cabecera, o pulsando <kbd>Ctrl</kbd> + <kbd>K</kbd>.

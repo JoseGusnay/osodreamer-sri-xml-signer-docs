@@ -1,0 +1,220 @@
+---
+title: Inicio rápido
+description: De npm install a un comprobante autorizado por el SRI, con el flujo completo en una sola página.
+---
+
+import { Aside, Steps, Tabs, TabItem, LinkCard } from '@astrojs/starlight/components';
+
+El recorrido completo en una página: **generar → firmar → validar → autorizar**. Cada paso
+tiene su página con el detalle; aquí está todo junto y encadenado.
+
+## Lo que necesitas
+
+- **Node.js 18 o superior**
+- Un **certificado `.p12`** con su contraseña — ver [Certificado .p12](../certificado-p12/)
+- Tu **RUC autorizado** por el SRI para emitir comprobantes electrónicos
+
+## Instalación
+
+<Tabs syncKey="pkg">
+  <TabItem label="npm">
+    ```bash
+    npm install osodreamer-sri-xml-signer
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```bash
+    yarn add osodreamer-sri-xml-signer
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    pnpm add osodreamer-sri-xml-signer
+    ```
+  </TabItem>
+</Tabs>
+
+## El flujo completo
+
+<Steps>
+
+1. ### Generar el XML
+
+   `generateXmlInvoice` valida los datos, calcula la clave de acceso y construye el XML.
+
+   ```ts title="factura.ts"
+   import {
+     generateXmlInvoice,
+     ENV_ENUM,
+     TAX_CODE_ENUM,
+     IDENTIFICATION_CODE_ENUM,
+     OBLIGADO_CONTABILIDAD_ENUM,
+     PAYMENT_METHOD_CODE_ENUM,
+   } from "osodreamer-sri-xml-signer";
+
+   const { generatedXml, invoiceJson } = await generateXmlInvoice({
+     infoTributaria: {
+       ambiente: ENV_ENUM.TEST,
+       razonSocial: "Mi Empresa S.A.",
+       nombreComercial: "Mi Comercio",
+       ruc: "1790012345001",
+       estab: "001",
+       ptoEmi: "001",
+       secuencial: "000000001",
+       dirMatriz: "Av. Amazonas N33-100 y Eloy Alfaro",
+     },
+     infoFactura: {
+       fechaEmision: new Date(),
+       dirEstablecimiento: "Av. Amazonas N33-100",
+       obligadoContabilidad: OBLIGADO_CONTABILIDAD_ENUM.SI,
+       tipoIdentificacionComprador: IDENTIFICATION_CODE_ENUM.CEDULA,
+       razonSocialComprador: "Juan Pérez",
+       identificacionComprador: "1712345678",
+       direccionComprador: "Calle 10 de Agosto 456",
+       totalSinImpuestos: 100,
+       totalDescuento: 0,
+       totalConImpuestos: {
+         totalImpuesto: [
+           {
+             codigo: TAX_CODE_ENUM.VAT,
+             codigoPorcentaje: 4, // 4 = IVA 15%
+             baseImponible: 100,
+             valor: 15,
+           },
+         ],
+       },
+       propina: 0,
+       importeTotal: 115,
+       moneda: "DOLAR",
+       pagos: {
+         pago: [
+           {
+             formaPago:
+               PAYMENT_METHOD_CODE_ENUM.SIN_UTILIZACION_DEL_SISTEMA_FINANCIERO,
+             total: 115,
+           },
+         ],
+       },
+     },
+     detalles: {
+       detalle: [
+         {
+           codigoPrincipal: "SERV-001",
+           descripcion: "Servicio de consultoría",
+           cantidad: 1,
+           precioUnitario: 100,
+           descuento: 0,
+           precioTotalSinImpuesto: 100,
+           impuestos: {
+             impuesto: [
+               {
+                 codigo: TAX_CODE_ENUM.VAT,
+                 codigoPorcentaje: 4,
+                 tarifa: 15,
+                 baseImponible: 100,
+                 valor: 15,
+               },
+             ],
+           },
+         },
+       ],
+     },
+   });
+
+   // La clave de acceso la necesitarás en el último paso
+   const claveAcceso = invoiceJson.factura.infoTributaria.claveAcceso;
+   ```
+
+   <Aside type="caution">
+   La librería **no recalcula los totales**, solo los formatea. Si tu aritmética viene mal,
+   el SRI lo rechaza con el [error 52](../errores-sri/#error-52--error-en-diferencias).
+   Aquí: 100 de base × 15% = 15 de IVA, total 115.
+   </Aside>
+
+2. ### Firmar con el certificado
+
+   La firma es **XAdES-BES** sobre el XML exacto del paso anterior.
+
+   ```ts title="factura.ts"
+   import { signXml } from "osodreamer-sri-xml-signer";
+   import * as fs from "fs";
+
+   const firmado = await signXml({
+     p12Buffer: fs.readFileSync("./certificado.p12"),
+     password: process.env.CERT_PASSWORD!,
+     xmlBuffer: new TextEncoder().encode(generatedXml),
+   });
+   ```
+
+   <Aside>
+   No reformatees ni reindentes el XML entre generar y firmar: la firma cubre el contenido
+   exacto y cualquier cambio la invalida
+   ([error 39](../errores-sri/#error-39--firma-inválida)).
+   </Aside>
+
+3. ### Enviar a validar
+
+   El SRI recibe el comprobante y responde si lo acepta.
+
+   ```ts title="factura.ts"
+   import { validateXml } from "osodreamer-sri-xml-signer";
+
+   const recepcion = await validateXml({
+     xml: new TextEncoder().encode(firmado),
+     env: "test",
+   });
+   ```
+
+   Si el estado es `DEVUELTA`, el comprobante fue rechazado y no se puede continuar. El
+   motivo viene en los mensajes — ver [Errores del SRI](../errores-sri/).
+
+4. ### Consultar la autorización
+
+   Recibido no es lo mismo que autorizado: la autorización se consulta después, con la
+   clave de acceso.
+
+   ```ts title="factura.ts"
+   import { authorizeXml } from "osodreamer-sri-xml-signer";
+
+   const autorizacion = await authorizeXml({ claveAcceso, env: "test" });
+
+   if (autorizacion.estadoAutorizacion === "AUTORIZADO") {
+     fs.writeFileSync("./factura-autorizada.xml", autorizacion.comprobanteCrudo);
+   }
+   ```
+
+   <Aside type="tip">
+   El SRI puede tardar unos segundos en autorizar. Si consultas de inmediato y aún no está,
+   reintenta con una espera breve — pero **nunca reenvíes el comprobante**: eso da el
+   [error 70](../errores-sri/#error-70--clave-de-acceso-en-procesamiento).
+   </Aside>
+
+</Steps>
+
+## Guardar el resultado
+
+La respuesta de autorización trae dos versiones del XML:
+
+- **`comprobante`** — solo el comprobante, sin las etiquetas del SRI.
+- **`comprobanteCrudo`** — la respuesta completa, con las etiquetas de autorización.
+
+Para el respaldo tributario guarda `comprobanteCrudo`: es el que lleva el número de
+autorización y la fecha.
+
+## Siguientes pasos
+
+<LinkCard
+  title="Manejo de errores"
+  description="Capturar y distinguir cada tipo de fallo antes de que llegue al usuario."
+  href="../errores-libreria/"
+/>
+<LinkCard
+  title="Pasar a producción"
+  description="Qué cambia entre pruebas y producción, y qué revisar antes."
+  href="../ambientes/"
+/>
+<LinkCard
+  title="Modelo de datos completo"
+  description="Todos los campos del comprobante, incluidos retenciones y el Anexo 26."
+  href="../modelo-datos/factura/"
+/>

@@ -1,0 +1,159 @@
+---
+title: Errores de la librería
+description: Cómo capturar y distinguir los errores que lanza la librería antes de llegar al SRI - validación, certificado .p12, firma y respuestas del SRI.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Antes de que un comprobante llegue al SRI hay tres momentos donde puede fallar: al
+**generar** (datos inválidos), al **firmar** (problemas con el `.p12` o el XML) y al
+**enviar** (el SRI lo rechaza). Cada uno lanza un tipo de error distinto y todos se pueden
+distinguir con `instanceof`.
+
+<Aside type="note">
+El campo `error.code` y las clases de error exportadas están disponibles **desde la
+versión 0.2.1**. En versiones anteriores había que comparar `error.name` o el texto del
+mensaje.
+</Aside>
+
+## Errores de validación al generar
+
+`generateXmlInvoice(...)` valida el comprobante completo antes de construir el XML. Si
+algo no cuadra lanza una `ValidationException` que reúne **todos** los fallos de una vez,
+no solo el primero.
+
+```ts title="validacion.ts"
+import { generateXmlInvoice, ValidationException } from "osodreamer-sri-xml-signer";
+
+try {
+  const { generatedXml } = await generateXmlInvoice(comprobante);
+} catch (error) {
+  if (error instanceof ValidationException) {
+    // error.errors es un string[] con cada problema encontrado
+    error.errors.forEach((e) => console.error(e));
+  }
+}
+```
+
+Un ejemplo de lo que trae `errors`:
+
+```txt
+Valor inválido para "infoFactura.totalConImpuestos.totalImpuesto[0].codigo".
+  Recibido: "2" (string). Permitidos: 2 (number), 3 (number), 5 (number).
+El campo adicional "RUC Proveedor" (0999999999001) no coincide con "rucProveedor"
+  (1719369561001). Envie solo uno de los dos.
+```
+
+<Aside type="tip">
+Como devuelve todos los errores juntos, conviene mostrárselos al usuario en bloque en vez
+de hacerle corregir de uno en uno.
+</Aside>
+
+## Errores al firmar
+
+`signXml(...)` lanza el error original enriquecido con un `code`, así que puedes usar
+tanto `instanceof` como el código.
+
+```ts title="firma.ts"
+import {
+  signXml,
+  InvalidP12PasswordError,
+  InvalidP12StructureError,
+  type SignXmlError,
+} from "osodreamer-sri-xml-signer";
+
+try {
+  const firmado = await signXml({ p12Buffer, password, xmlBuffer });
+} catch (error) {
+  if (error instanceof InvalidP12PasswordError) {
+    // pedir de nuevo la contraseña al usuario
+  } else if (error instanceof InvalidP12StructureError) {
+    // el archivo subido no es un .p12
+  } else {
+    console.error((error as SignXmlError).code);
+  }
+}
+```
+
+### Códigos del firmador
+
+| `error.code` | Clase | Qué significa |
+| --- | --- | --- |
+| `P12_STRUCTURE_ERROR` | `InvalidP12StructureError` | El archivo no es un PKCS#12 (`.p12`) válido. Suele ser un archivo equivocado o corrupto |
+| `P12_PASSWORD_ERROR` | `InvalidP12PasswordError` | El `.p12` es válido, pero la contraseña es incorrecta |
+| `XML_STRUCTURE_ERROR` | `InvalidXmlStructureError` | El XML que se intenta firmar no es válido |
+| `UNKNOWN_SIGN_STRATEGY` | `UnknownSignStrategyError` | La entidad que emitió el certificado no está soportada. Ver [Certificado .p12](../certificado-p12/) |
+| `SIGNING_KEY_NOT_FOUND` | `SigningKeyNotFoundError` | No se encontró la clave de firma dentro del certificado |
+| `PRIVATE_KEY_EXTRACTION_ERROR` | `PrivateKeyExtractionError` | No se pudo extraer la clave privada del archivo |
+| `UANATACA_CERT_NOT_FOUND` | `UanatacaCertificateNotFoundError` | No se encontró el certificado dentro de un `.p12` de Uanataca |
+| `SIGN_STRATEGY_ERROR` | `SignStrategyError` | Fallo genérico al aplicar la estrategia de firma |
+| `INFRASTRUCTURE_ERROR` | `InfrastructureError` | Fallo de infraestructura no clasificado |
+| `UNHANDLED_ERROR` | — | Un `Error` que la librería no reconoce |
+| `UNKNOWN_ERROR` | — | Se lanzó algo que ni siquiera es un `Error` |
+
+Las clases están jerarquizadas: `SigningKeyNotFoundError`, `PrivateKeyExtractionError` y
+`UanatacaCertificateNotFoundError` extienden `SignStrategyError`, que a su vez extiende
+`InfrastructureError`. Puedes capturar por la rama que te interese.
+
+## Errores del SRI
+
+Al validar o autorizar, un rechazo del SRI llega como excepción con todos los datos de la
+respuesta.
+
+```ts title="envio.ts"
+import { validateXml, SRIRejectedError } from "osodreamer-sri-xml-signer";
+
+try {
+  await validateXml({ xml, env: "test" });
+} catch (error) {
+  if (error instanceof SRIRejectedError) {
+    error.identificador;        // el código: "43", "39", "52"...
+    error.mensajeSRI;           // el mensaje del SRI
+    error.informacionAdicional; // el detalle del caso concreto
+    error.tipo;                 // ERROR o ADVERTENCIA
+    error.estado;               // DEVUELTA, NO AUTORIZADO...
+    error.claveAcceso;
+  }
+}
+```
+
+`SRIAutorizacionError` se lanza en el paso de autorización y añade `ambiente` y
+`comprobanteXml`. `SRIUnauthorizedError` cubre el caso de un estado no autorizado sin
+mensajes asociados.
+
+**Qué significa cada `identificador`** está en [Errores del SRI](../errores-sri/).
+
+## Patrón recomendado
+
+Capturar de lo más específico a lo más general, en el orden del flujo:
+
+```ts title="manejo-completo.ts"
+import {
+  ValidationException,
+  InvalidP12PasswordError,
+  SRIRejectedError,
+  type SignXmlError,
+} from "osodreamer-sri-xml-signer";
+
+try {
+  const { generatedXml } = await generateXmlInvoice(comprobante);
+  const firmado = await signXml({ p12Buffer, password, xmlBuffer: encode(generatedXml) });
+  await validateXml({ xml: encode(firmado), env: "prod" });
+} catch (error) {
+  if (error instanceof ValidationException) {
+    return { ok: false, motivo: "datos", detalles: error.errors };
+  }
+  if (error instanceof InvalidP12PasswordError) {
+    return { ok: false, motivo: "certificado" };
+  }
+  if (error instanceof SRIRejectedError) {
+    return { ok: false, motivo: "sri", codigo: error.identificador };
+  }
+  throw error; // lo que no reconoces, no lo silencies
+}
+```
+
+<Aside type="caution">
+La librería **no escribe en la consola**: toda la información viaja en el error. Si
+necesitas registro, hazlo tú en el `catch`, con el formato de tu aplicación.
+</Aside>

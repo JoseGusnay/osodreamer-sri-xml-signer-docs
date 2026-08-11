@@ -1,0 +1,74 @@
+---
+title: Certificado .p12
+description: Qué entidades certificadoras soporta la librería, cómo cargar el archivo .p12 y qué hacer cuando no abre.
+---
+
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Para firmar comprobantes necesitas un **certificado de firma electrónica** en formato
+`.p12` (PKCS#12), emitido por una entidad de certificación acreditada en Ecuador.
+
+## Entidades soportadas
+
+Cada entidad empaqueta el certificado de forma ligeramente distinta, así que la librería
+tiene una estrategia de lectura por cada una. Hoy están soportadas:
+
+<CardGrid>
+  <LinkCard title="Security Data" href="https://www.securitydata.net.ec/" />
+  <LinkCard title="Banco Central del Ecuador" href="https://www.eci.bce.ec/" />
+  <LinkCard title="Uanataca" href="https://web.uanataca.com/es/" />
+  <LinkCard title="ANFAC" href="https://www.anf.es/" />
+</CardGrid>
+
+Si tu certificado es de otra entidad, al firmar obtendrás el error
+`UNKNOWN_SIGN_STRATEGY` — *"No existe estrategia para el certificado: …"*. En ese caso
+escribe a [osodreamer2023@gmail.com](mailto:osodreamer2023@gmail.com) con el nombre de la
+entidad para evaluar su integración.
+
+## Cómo cargarlo
+
+`signXml` espera el contenido binario del archivo, no una ruta:
+
+```ts title="firmar.ts"
+import { signXml } from "osodreamer-sri-xml-signer";
+import * as fs from "fs";
+
+const p12Buffer = fs.readFileSync("./certificado.p12");
+const xmlBuffer = fs.readFileSync("./comprobante.xml");
+
+const firmado = await signXml({
+  p12Buffer,
+  password: process.env.CERT_PASSWORD!,
+  xmlBuffer,
+});
+```
+
+Si el certificado llega desde una subida web, pásale directamente el buffer del archivo;
+no hace falta escribirlo en disco.
+
+<Aside type="caution" title="La contraseña no va en el código">
+El `.p12` contiene tu clave privada: quien tenga el archivo y la contraseña puede firmar
+en tu nombre. Guarda la contraseña en una variable de entorno o un gestor de secretos, y
+nunca subas el `.p12` al repositorio.
+</Aside>
+
+## Cuando el certificado no abre
+
+Son los dos fallos más frecuentes al empezar:
+
+| Error | Qué pasó |
+| --- | --- |
+| `P12_STRUCTURE_ERROR` | El archivo no es un PKCS#12 válido. Suele ser que se subió el archivo equivocado, o que se corrompió al transferirlo |
+| `P12_PASSWORD_ERROR` | El archivo sí es válido, pero la contraseña no coincide |
+
+Que estén separados es útil: si obtienes `P12_PASSWORD_ERROR`, el archivo está bien y solo
+falla la clave — no hace falta que el usuario vuelva a subirlo.
+
+Ver [Errores de la librería](../errores-libreria/) para capturarlos.
+
+## Vigencia
+
+Un certificado vencido o revocado no lo detecta la librería: lo detecta el SRI al validar,
+y responde con el error **39 – Firma inválida** o **42 – Certificado revocado**. Si tus
+comprobantes empiezan a fallar de golpe sin haber tocado el código, revisa primero la
+fecha de caducidad del certificado.
