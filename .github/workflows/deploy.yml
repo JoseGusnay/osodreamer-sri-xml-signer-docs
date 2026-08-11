@@ -23,7 +23,16 @@ jobs:
           node-version: 22
 
       - name: Instalar dependencias
-        run: npm ci
+        # npm ci es estricto y falla si el lockfile no resuelve las dependencias
+        # opcionales de otras plataformas. Eso pasa cuando el lock se genera en
+        # Windows, porque npm poda las variantes de Linux (las de sharp).
+        # Si ocurre, se avisa y se continua con npm install en lugar de tumbar
+        # el deploy. Para arreglarlo en local: npm run relock
+        run: |
+          npm ci || {
+            echo "::warning::El lockfile no esta sincronizado. Se continua con npm install; ejecuta 'npm run relock' en local y commitea el lockfile."
+            npm install --no-audit --no-fund
+          }
 
       - name: Construir sitio Astro
         run: npm run build

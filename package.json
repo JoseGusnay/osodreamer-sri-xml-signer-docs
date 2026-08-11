@@ -6,6 +6,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "relock": "node -e \"const fs=require('fs');fs.rmSync('node_modules',{recursive:true,force:true});fs.rmSync('package-lock.json',{force:true})\" && npm install",
     "astro": "astro"
   },
   "dependencies": {
