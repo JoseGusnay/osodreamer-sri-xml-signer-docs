@@ -143,9 +143,27 @@ class ComprobanteModel {
   detalles: DetallesModel;
   retenciones?: RetencionesModel;
   infoAdicional?: InfoAdicionalModel;
+  /** Anexo 26 — RUC del proveedor del sistema de facturación (13 dígitos) */
+  rucProveedor?: string;
 }
 type ComprobanteType = InstanceType<typeof ComprobanteModel>;`}
         />
+
+        <div class="text-sm text-zinc-400 bg-zinc-800/40 p-4 rounded-xl mt-2">
+          <p>
+            <strong class="text-white">rucProveedor</strong> no genera un nodo
+            propio en el XML: la librería lo emite como
+            <code>&lt;campoAdicional nombre="RUC Proveedor"&gt;</code> dentro de
+            <code>infoAdicional</code>, según el
+            <strong class="text-white">Anexo 26</strong>.
+            <a
+              href="/osodreamer-sri-xml-signer-docs/docs/generar"
+              class="text-indigo-400 hover:text-indigo-300 underline"
+            >
+              Ver ejemplo completo
+            </a>.
+          </p>
+        </div>
       </div>
 
       <hr class="my-8 border-zinc-700" />

@@ -22,6 +22,26 @@ const response = await generateXmlInvoice({
 
 const { generatedXml } = response;
 fs.writeFileSync("./comprobante.xml", generatedXml);`;
+
+const ejemploAnexo26 = `import { generateXmlInvoice } from "osodreamer-sri-xml-signer";
+
+const response = await generateXmlInvoice({
+  infoTributaria: { /* ... */ },
+  infoFactura: { /* ... */ },
+  detalles: { /* ... */ },
+
+  infoAdicional: {
+    campoAdicional: [{ nombre: "Email", value: "cliente@correo.com" }]
+  },
+
+  // Anexo 26: RUC del proveedor del sistema de facturación
+  rucProveedor: "1719369561001"
+});`;
+
+const xmlAnexo26 = `<infoAdicional>
+  <campoAdicional nombre="Email">cliente@correo.com</campoAdicional>
+  <campoAdicional nombre="RUC Proveedor">1719369561001</campoAdicional>
+</infoAdicional>`;
 ---
 
 <DocsLayout title="Generador XML ">
@@ -45,6 +65,65 @@ fs.writeFileSync("./comprobante.xml", generatedXml);`;
       </div>
 
       <CodeBlock code={ejemplo} filename="generar.ts" language="ts" />
+
+      <!-- Anexo 26 -->
+      <hr class="my-8 border-zinc-700" />
+
+      <div class="flex items-start gap-3 mb-4">
+        <span class="text-indigo-400 w-5 h-5 mt-1"><FileText /></span>
+        <h2 class="text-lg font-semibold text-white">
+          Anexo 26 — RUC del proveedor
+        </h2>
+      </div>
+
+      <p class="text-sm text-zinc-400 mb-4 leading-relaxed">
+        Los contribuyentes que emiten con un <strong class="text-white"
+          >sistema de facturación de un tercero</strong
+        > están obligados a incluir el <strong class="text-white"
+          >RUC de ese proveedor</strong
+        > dentro de <code>infoAdicional</code>. Solo pasa
+        <code>rucProveedor</code> en la raíz del comprobante y la librería agrega
+        el <code>campoAdicional</code> con el nombre exacto que exige el SRI.
+      </p>
+
+      <CodeBlock code={ejemploAnexo26} filename="anexo-26.ts" language="ts" />
+
+      <p class="text-sm text-zinc-400 mb-4">
+        Resultado en el XML generado:
+      </p>
+
+      <CodeBlock code={xmlAnexo26} filename="comprobante.xml" language="xml" />
+
+      <div class="text-sm text-zinc-400 bg-zinc-800/40 p-6 rounded-xl">
+        <h3 class="text-base font-semibold text-white mb-3">
+          Comportamiento del campo
+        </h3>
+        <ul class="list-disc list-inside space-y-2 pl-1">
+          <li>
+            Es <strong class="text-white">opcional</strong>. Si no lo envías, el
+            XML se genera igual que antes.
+          </li>
+          <li>
+            Se valida como <strong class="text-white"
+              >cadena numérica de 13 dígitos</strong
+            >.
+          </li>
+          <li>
+            Si el comprobante no tiene <code>infoAdicional</code>, el nodo se
+            crea automáticamente con este único campo.
+          </li>
+          <li>
+            El campo siempre se agrega <strong class="text-white">al final</strong
+            > de la lista, con el nombre literal <code>"RUC Proveedor"</code>.
+          </li>
+          <li>
+            Si además envías un <code>campoAdicional</code> llamado
+            <code>"RUC Proveedor"</code> por tu cuenta, no se duplica: manda
+            <code>rucProveedor</code>. Y si ambos tienen valores distintos, se
+            lanza un error de validación en vez de elegir uno en silencio.
+          </li>
+        </ul>
+      </div>
 
       <!-- Compatibilidad -->
       <hr class="my-8 border-zinc-700" />
@@ -75,6 +154,10 @@ fs.writeFileSync("./comprobante.xml", generatedXml);`;
           </li>
           <li>
             <strong class="text-white">ANEXO 22</strong> — Para contribuyentes RIMPE
+          </li>
+          <li>
+            <strong class="text-white">ANEXO 26</strong> — RUC del proveedor del sistema
+            de facturación
           </li>
         </ul>
 
